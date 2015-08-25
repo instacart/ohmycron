@@ -5,6 +5,7 @@ import getpass
 import logging
 import logging.handlers
 import os
+import pipes
 import subprocess
 import tempfile
 
@@ -27,7 +28,7 @@ def omc(args, token=None, do_not_lock=False, debug=False):
     if debug:
         setup_logger(level=logging.DEBUG)
 
-    log.debug('argv: %r', argv)
+    log.debug('argv: %r', escape(argv))
 
     def task():
         try:
@@ -41,8 +42,10 @@ def omc(args, token=None, do_not_lock=False, debug=False):
         d = os.path.join(tempfile.gettempdir(), 'omc~' + getpass.getuser())
         # Maybe someday, allow shared, explicitly namespaced tokens.
         f = token if '/' in token else os.path.join(d, token)
+        log.debug('Would lock: %s', f)
         flock(f, task)
     else:
+        log.debug('Not locking.')
         task()
 
 
@@ -90,10 +93,16 @@ def flock(path, fn):
 def bash_driver(code=None):
     return '\n'.join(['exec 1> >(exec logger -t "$0[$$]" -p user.info)',
                       'exec 2> >(exec logger -t "$0[$$]" -p user.notice)',
+                      'export PATH=/usr/local/bin:"$PATH"',
                       'for f in ~/.bashrc ~/.bash_profile ~/.profile',
                       'do [[ ! -s $f ]] || source "$f"',
                       'done',
                       'exec "$@"' if code is None else code])
+
+
+def escape(argv):
+    # NB: The pipes.quote() function is deprecated in Python 3
+    return ' '.join(pipes.quote(_) for _ in argv)
 
 
 class Err(RuntimeError):

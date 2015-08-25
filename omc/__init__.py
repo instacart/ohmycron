@@ -90,6 +90,9 @@ def flock(path, fn):
 def bash_driver(code=None):
     return '\n'.join(['exec 1> >(exec logger -t "$0[$$]" -p user.info)',
                       'exec 2> >(exec logger -t "$0[$$]" -p user.notice)',
+                      'for f in ~/.bashrc ~/.bash_profile ~/.profile',
+                      'do [[ ! -s $f ]] || source "$f"',
+                      'done',
                       'exec "$@"' if code is None else code])
 
 

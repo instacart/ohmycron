@@ -9,7 +9,7 @@ from . import Err, omc, setup_logger
 log = logging.getLogger(__package__)
 
 
-if __name__ == '__main__':
+def main():
     setup_logger()
     try:
         argh.dispatch_command(omc)
@@ -17,3 +17,7 @@ if __name__ == '__main__':
         log.error(e.message)
     except:
         log.exception('Internal error.')
+
+
+if __name__ == '__main__':
+    main()

@@ -50,6 +50,12 @@ def setup_logger(logger=log, level=logging.INFO):
 
 
 def flock(path, fn):
+    d = os.path.dirname(path)
+    try:
+        os.makedirs(d)
+    except OSError as e:
+        if not (e.errno == errno.EEXIST and os.path.isdir(d)):
+            raise Err('Not able to create dir: %s' % d)
     with open(path, 'r+') as handle:
         try:
             fcntl.flock(handle, fcntl.LOCK_NB | fcntl.LOCK_EX)

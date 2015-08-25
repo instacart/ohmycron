@@ -17,10 +17,17 @@ log = logging.getLogger(__package__)
 @arg('args', nargs='*', help='Command and arguments.')
 @arg('--token', help='Unique token for task (defaults to command name).')
 @arg('--do-not-lock', help='Disable locking on the token.')
-def omc(args, token=None, do_not_lock=False):
+@arg('--debug', help='Log commands that are run (NB: might expose secrets).')
+def omc(args, token=None, do_not_lock=False, debug=False):
     token = token if token is not None else args[0]
     token = token.split('/')[-1]
+    log.info('Token: %s' % token)
     argv = ['/bin/bash', '-il', '-c', bash_driver(), token] + args
+
+    if debug:
+        setup_logger(level=logging.DEBUG)
+
+    log.debug('argv: %r', argv)
 
     def task():
         try:
@@ -33,20 +40,26 @@ def omc(args, token=None, do_not_lock=False):
     if not do_not_lock:
         d = os.path.join(tempfile.gettempdir(), 'omc~' + getpass.getuser())
         # Maybe someday, allow shared, explicitly namespaced tokens.
-        f = token if '/' not in token else os.path.join(d, token)
+        f = token if '/' in token else os.path.join(d, token)
         flock(f, task)
     else:
         task()
 
 
+handler = None
+
+
 def setup_logger(logger=log, level=logging.INFO):
     logger.setLevel(level)
-    dev = '/dev/log' if os.path.exists('/dev/log') else '/var/run/syslog'
-    fmt = logger.name + '[%(process)d]: %(name)s %(message)s'
-    handler = logging.handlers.SysLogHandler(address=dev)
-    handler.setFormatter(logging.Formatter(fmt=fmt))
+    global handler
+    if handler is None:
+        dev = '/dev/log' if os.path.exists('/dev/log') else '/var/run/syslog'
+        fmt = (logger.name +
+               '[%(process)d]: %(name)s.%(funcName)s() %(message)s')
+        handler = logging.handlers.SysLogHandler(address=dev)
+        handler.setFormatter(logging.Formatter(fmt=fmt))
+        logger.addHandler(handler)
     handler.setLevel(level)
-    logger.addHandler(handler)
 
 
 def flock(path, fn):

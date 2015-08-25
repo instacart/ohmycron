@@ -3,6 +3,7 @@ import errno
 import fcntl
 import getpass
 import logging
+import logging.handlers
 import os
 import subprocess
 import tempfile

@@ -6,7 +6,6 @@ import logging
 import logging.handlers
 import os
 import pipes
-import subprocess
 import tempfile
 
 from argh import arg
@@ -30,12 +29,7 @@ def omc(args, token=None, do_not_lock=False, debug=False):
     log.debug('argv: %s', escape(argv))
 
     def task():
-        try:
-            log.info('Starting up...')
-            subprocess.check_call(argv)
-            log.info('Success.')
-        except subprocess.CalledProcessError as e:
-            raise Err('Failed with exit code: %d' % e.returncode)
+        os.execlp(argv[0], *argv)
 
     if not do_not_lock:
         d = os.path.join(tempfile.gettempdir(), 'omc~' + getpass.getuser())

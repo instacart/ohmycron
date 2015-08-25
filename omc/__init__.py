@@ -22,13 +22,12 @@ log = logging.getLogger(__package__)
 def omc(args, token=None, do_not_lock=False, debug=False):
     token = token if token is not None else args[0]
     token = token.split('/')[-1]
-    log.info('Token: %s' % token)
-    argv = ['/bin/bash', '-il', '-c', bash_driver(), token] + args
+    argv = ['/bin/bash', '-l', '-c', bash_driver(), token] + args
 
     if debug:
         setup_logger(level=logging.DEBUG)
 
-    log.debug('argv: %r', escape(argv))
+    log.debug('argv: %s', escape(argv))
 
     def task():
         try:
@@ -72,7 +71,8 @@ def flock(path, fn):
     except OSError as e:
         if not (e.errno == errno.EEXIST and os.path.isdir(d)):
             raise Err('Not able to create dir: %s' % d)
-    with open(path, 'r+') as handle:
+    with open(path, 'a+') as handle:
+        handle.seek(0)
         try:
             fcntl.flock(handle, fcntl.LOCK_NB | fcntl.LOCK_EX)
         except IOError as e:

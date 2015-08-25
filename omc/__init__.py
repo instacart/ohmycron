@@ -15,7 +15,7 @@ log = logging.getLogger(__package__)
 
 
 @arg('args', nargs='*', help='Command and arguments.')
-@arg('--token, -t', help='Unique token for task (defaults to command name).')
+@arg('--token', help='Unique token for task (defaults to command name).')
 @arg('--do-not-lock', help='Disable locking on the token.')
 def omc(args, token=None, do_not_lock=False):
     token = token if token is not None else args[0]

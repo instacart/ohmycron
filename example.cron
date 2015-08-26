@@ -1,0 +1,10 @@
+# This lock created for this command will be named `sleep`.
+* * * * *  root  ohmycron sleep 10
+
+# Passing a tag allows one to set the name of the lock (and the name of the app
+# as seen by Syslog.)
+* * * * *  root  ohmycron --tag unique:token sleep 10
+
+# Thess will raise errors.
+* * * * *  root  ohmycron --tag no-args
+* * * * *  root  ohmycron --tag no-such-command excel-for-linux

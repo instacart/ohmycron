@@ -12,10 +12,33 @@ export LC_ALL=en_US.UTF-8                    # A locale that works consistently
 export PATH=/usr/local/bin:"$PATH"
 
 function main {
-  local name="$1"; shift
-  local lock=/tmp/ohmycron~"$(whoami)"/"$name"
+  local found=false after=() before=() name=
   exec 1> >(exec logger -t "$name[$$]" -p user.info)
   exec 2> >(exec logger -t "$name[$$]" -p user.notice)
+  while [[ $# -gt 0 ]]
+  do
+    case "$1" in
+      -t|--token) name="$2" ; shift ;;
+      --)         found=true
+                  before=( "${after[@]:+${after[@]}}" )
+                  after=() ;;
+      *)          after+=( "$1" ) ;;
+    esac
+    shift
+  done
+  if "$found" && [[ ${#before[@]} -gt 0 ]]
+  then err "Unknown flags: ${before[@]}"
+  fi
+  if [[ ! ${name:+isset} ]]
+  then name="${after[0]}"
+  fi
+  name="${name##*/}"                                             # Get basename
+  ohmycron "$name" "${after[@]}"
+}
+
+function ohmycron {
+  local name="$1"; shift
+  local lock=/tmp/ohmycron~"$(whoami)"/"$name"
   mkdir -p "$(dirname "$lock")"
   if flock -nx 9
   then

@@ -2,7 +2,7 @@
 set -o errexit -o nounset -o pipefail
 function -h {
 cat <<USAGE
- USAGE: ohmycron <job-name> <cmd> <arg>*
+ USAGE: ohmycron ((-t|--tag) <unique-lock-token>)? <cmd> <arg>*
 
   Log the job to Syslog, lock it and load the user environment.
 
@@ -12,32 +12,40 @@ export LC_ALL=en_US.UTF-8                    # A locale that works consistently
 export PATH=/usr/local/bin:"$PATH"
 
 function main {
-  local found=false after=() before=() name=
-  exec 1> >(exec logger -t "$name[$$]" -p user.info)
-  exec 2> >(exec logger -t "$name[$$]" -p user.notice)
+  local found=false after=() before=() tag="ohmycron[$$]"
+  exec 1> >(exec logger -t "$tag" -p user.info)
+  exec 2> >(exec logger -t "$tag" -p user.notice)
+  local name="${1##*/}"
   while [[ $# -gt 0 ]]
   do
     case "$1" in
-      -t|--token) name="$2" ; shift ;;
-      --)         found=true
-                  before=( "${after[@]:+${after[@]}}" )
-                  after=() ;;
-      *)          after+=( "$1" ) ;;
+      -t|--tag) name="$2" ; shift ;;
+      --)       found=true
+                before=( "${after[@]:+${after[@]}}" )
+                after=() ;;
+      *)        after+=( "$1" ) ;;
     esac
     shift
   done
   if "$found" && [[ ${#before[@]} -gt 0 ]]
   then err "Unknown flags: ${before[@]}"
   fi
-  if [[ ! ${name:+isset} ]]
-  then name="${after[0]}"
+  case "$name" in
+    */*) err "Invalid lock token ($name). (No slashes, please.)" ;;
+  esac
+  if [[ ${#after[@]} -eq 0 ]]
+  then err "No arguments passed -- can't run empty command vector."
   fi
-  name="${name##*/}"                                             # Get basename
+  if ! which "${after[0]}" &> /dev/null
+  then err "Command \`${after[0]}\` is not on the PATH."
+  fi
   ohmycron "$name" "${after[@]}"
 }
 
 function ohmycron {
-  local name="$1"; shift
+  local name="$1" tag="$1[$$]"; shift
+  exec 1> >(exec logger -t "$tag" -p user.info)
+  exec 2> >(exec logger -t "$tag" -p user.notice)
   local lock=/tmp/ohmycron~"$(whoami)"/"$name"
   mkdir -p "$(dirname "$lock")"
   if flock -nx 9
@@ -50,7 +58,7 @@ function ohmycron {
       set -o errexit -o nounset -o pipefail
     done
     out "pid $$ at $(date -u +%FT%TZ)" > "$lock"
-    exec "$@"
+    exec -- "$@"
   else
     [[ ! -s $lock ]] || msg "Previous lock holder: $(< "$lock")"
     err "Failed to lock $lock; is another copy running?"

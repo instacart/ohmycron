@@ -12,10 +12,29 @@ export LC_ALL=en_US.UTF-8                    # A locale that works consistently
 export PATH=/usr/local/bin:"$PATH"
 
 function main {
-  local found=false after=() before=() tag="ohmycron[$$]"
+  local tag="ohmycron[$$]"
   exec 1> >(exec logger -t "$tag" -p user.info)
   exec 2> >(exec logger -t "$tag" -p user.notice)
-  local name="${1##*/}"
+  if [[ $# -eq 2 && ${1:-} = '-c' ]]
+  then as_shell "$2"
+  else as_wrapper "$@"
+  fi
+}
+
+function as_shell {
+  local code="$1" name=
+  if name="$(look_for_explicit_lock_token "$code")"
+  then
+    run "$name" "$name" bash -c "$code"
+  else
+    name="$(awk '{print $1}' <<<"$code")"
+    name="${name##*/}"
+    run "$name" "$name" bash -c "$code"
+  fi
+}
+
+function as_wrapper {
+  local found=false after=() before=() name="${1##*/}"
   while [[ $# -gt 0 ]]
   do
     case "$1" in
@@ -39,17 +58,19 @@ function main {
   if ! which "${after[0]}" &> /dev/null
   then err "Command \`${after[0]}\` is not on the PATH."
   fi
-  ohmycron "$name" "${after[@]}"
+  run "$name" "$name" "${after[@]}"
 }
 
-function ohmycron {
-  local name="$1" tag="$1[$$]"; shift
+function run {
+  local tag="$1[$$]"; shift
+  local name="$1"; shift
   exec 1> >(exec logger -t "$tag" -p user.info)
   exec 2> >(exec logger -t "$tag" -p user.notice)
   local lock=/tmp/ohmycron~"$(whoami)"/"$name"
   mkdir -p "$(dirname "$lock")"
   if flock -nx 9
   then
+    cd ~
     for rc in /etc/profile /etc/bashrc ~/.profile ~/.bashrc
     do
       [[ -s $rc ]] || continue
@@ -63,6 +84,13 @@ function ohmycron {
     [[ ! -s $lock ]] || msg "Previous lock holder: $(< "$lock")"
     err "Failed to lock $lock; is another copy running?"
   fi 9>> "$lock"
+}
+
+function look_for_explicit_lock_token {
+  local pattern= line=
+  line="$(head -n1 <<<"$1")"
+  pattern='^ *: +([^;]+) +;'
+  [[ $line =~ $pattern ]] && out "${BASH_REMATCH[1]}"
 }
 
 ##################################################################### Utilities

@@ -8,6 +8,8 @@ Frequently when debuggin cron jobs, one finds that:
 * One wishes to load the user environment -- `/etc/profile` as well as RC
   files in `HOME`.
 
+* Generally, one would cd to `HOME` for application specific users.
+
 * The path should include `/usr/local/bin`.
 
 * The output of the cron job should be logged to Syslog, which both prevents
@@ -27,6 +29,24 @@ and transparently adds logging, locking and environment loading.
 * * * * *  root  ohmycron sleep 10
 * * * * *  root  ohmycron --tag update:ohmycron -- curl -sSfL 'https://raw.githubusercontent.com/instacart/ohmycron/master/ohmycron' -o /usr/bin/ohmycron
 ```
+
+# `ohmycron` as the cron shell
+
+Setting `SHELL=/usr/bin/ohmycron` (or another path if you have installed
+`ohmycron` elsewhere) transparently adds locks, logging and environment setup
+to all the jobs in a cron file. (Tasks are actually run with Bash.) It is does
+something the wrapper can't do, too: support multi-statement commands which
+use the shell operators `&&`, `|`, `||` and so forth.
+
+```crontab
+SHELL=/usr/bin/ohmycron
+* * * * *  root  sleep 10
+* * * * *  root  : update:ohmycron ; curl -sSfL 'https://raw.githubusercontent.com/instacart/ohmycron/master/ohmycron' -o /usr/bin/ohmycron
+```
+
+You can explicitly name a cron job with a Bash "no-op comment": `: <some
+words> ;`. (In Bash, `:` is a no-op; the arguments to the no-op command are
+ignored.)
 
 # Installation
 

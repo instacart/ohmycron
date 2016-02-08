@@ -25,11 +25,11 @@ function as_shell {
   local code="$1" name=
   if name="$(look_for_explicit_lock_token "$code")"
   then
-    run "$name" "$name" bash -c "$code"
+    run "$name" bash -c "$code"
   else
     name="$(awk '{print $1}' <<<"$code")"
     name="${name##*/}"
-    run "$name" "$name" bash -c "$code"
+    run "$name" bash -c "$code"
   fi
 }
 
@@ -49,25 +49,36 @@ function as_wrapper {
   if "$found" && [[ ${#before[@]} -gt 0 ]]
   then err "Unknown flags: ${before[@]}"
   fi
-  case "$name" in
-    */*) err "Invalid lock token ($name). (No slashes, please.)" ;;
-  esac
   if [[ ${#after[@]} -eq 0 ]]
   then err "No arguments passed -- can't run empty command vector."
   fi
   if ! which "${after[0]}" &> /dev/null
   then err "Command \`${after[0]}\` is not on the PATH."
   fi
-  run "$name" "$name" "${after[@]}"
+  run "$name" "${after[@]}"
 }
 
 function run {
-  local tag="$1[$$]"; shift
   local name="$1"; shift
+  case "$name" in
+    ?*://*/?*#?*) run_under_dld "${name##*#}" "$name" "$@" ;;
+    *://*#*)      err "Broken/partial lock URL ($name). (No #... part?)" ;;
+    */*)          err "Invalid lock token ($name). (No slashes, please.)" ;;
+    ?*)           run_under_flock "$name" "$name" "$@" ;;
+    *)            err "Resembles neither a simple name nor a URL ($name)." ;;
+  esac
+}
+
+function run_under_flock {
+  local tag="$1[$$]"; shift
+  local lock="$1"; shift
   exec 1> >(exec logger -t "$tag" -p user.info)
   exec 2> >(exec logger -t "$tag" -p user.notice)
-  local lock=/tmp/ohmycron~"$(whoami)"/"$name"
-  mkdir -p "$(dirname "$lock")"
+  case "$lock" in
+    */*) err "Invalid lock token ($lock). (No slashes, please.)" ;;
+  esac
+  local lockpath=/tmp/ohmycron~"$(whoami)"/"$lock"
+  mkdir -p "$(dirname "$lockpath")"
   if flock -nx 9
   then
     cd ~
@@ -78,12 +89,31 @@ function run {
       source "$rc"
       set -o errexit -o nounset -o pipefail
     done
-    out "pid $$ at $(date -u +%FT%TZ)" > "$lock"
+    out "pid $$ at $(date -u +%FT%TZ)" > "$lockpath"
     exec -- "$@"
   else
-    [[ ! -s $lock ]] || msg "Previous lock holder: $(< "$lock")"
-    err "Failed to lock $lock; is another copy running?"
-  fi 9>> "$lock"
+    [[ ! -s $lockpath ]] || msg "Previous lock holder: $(< "$lockpath")"
+    err "Failed to lock $lockpath; is another copy running?"
+  fi 9>> "$lockpath"
+}
+
+function run_under_dld {
+  local tag="$1[$$]"; shift
+  local lock="$1"; shift
+  exec 1> >(exec logger -t "$tag" -p user.info)
+  exec 2> >(exec logger -t "$tag" -p user.notice)
+  cd ~
+  for rc in /etc/profile /etc/bashrc ~/.profile ~/.bashrc
+  do
+    [[ -s $rc ]] || continue
+    set +o errexit +o nounset +o pipefail
+    source "$rc"
+    set -o errexit -o nounset -o pipefail
+  done
+  if ! which dld &> /dev/null
+  then err "Not able to find \`dld\` managing distributed lock: $lock"
+  fi
+  exec dld "$lock" -- "$@"
 }
 
 function look_for_explicit_lock_token {

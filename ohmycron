@@ -119,7 +119,7 @@ function run_under_dld {
 function look_for_explicit_lock_token {
   local pattern= line=
   line="$(head -n1 <<<"$1")"
-  pattern='^ *: +([^;]+) +;'
+  pattern='^ *: +([^ ][^;]*[^ ]) +;'
   [[ $line =~ $pattern ]] && out "${BASH_REMATCH[1]}"
 }
 

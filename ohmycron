@@ -81,16 +81,17 @@ function run_under_flock {
   mkdir -p "$(dirname "$lockpath")"
   if flock -nx 9
   then
-    cd ~
-    for rc in /etc/profile /etc/bashrc ~/.profile ~/.bashrc
-    do
-      [[ -s $rc ]] || continue
-      set +o errexit +o nounset +o pipefail
-      source "$rc"
-      set -o errexit -o nounset -o pipefail
-    done
-    out "pid $$ at $(date -u +%FT%TZ)" > "$lockpath"
-    exec -- "$@"
+    ( exec 9>&-
+      cd ~
+      for rc in /etc/profile /etc/bashrc ~/.profile ~/.bashrc
+      do
+        [[ -s $rc ]] || continue
+        set +o errexit +o nounset +o pipefail
+        source "$rc"
+        set -o errexit -o nounset -o pipefail
+      done
+      out "pid $$ at $(date -u +%FT%TZ)" > "$lockpath"
+      exec -- "$@" )
   else
     [[ ! -s $lockpath ]] || msg "Previous lock holder: $(< "$lockpath")"
     err "Failed to lock $lockpath; is another copy running?"

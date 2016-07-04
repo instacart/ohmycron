@@ -1,5 +1,7 @@
 # `ohmycron` -- Cron simplified
 
+![OhMyCron Logo](ohmycron.jpg)
+
 Frequently when debugging cron jobs, one finds that:
 
 * One needs to use locks to keep more than one copy of frequently running jobs

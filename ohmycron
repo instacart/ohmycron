@@ -13,8 +13,7 @@ export PATH=/usr/local/bin:"$PATH"
 
 function main {
   local tag="ohmycron[$$]"
-  exec 1> >(exec logger -t "$tag" -p user.info)
-  exec 2> >(exec logger -t "$tag" -p user.notice)
+  echo $tag
   if [[ $# -eq 2 && ${1:-} = '-c' ]]
   then as_shell "$2"
   else as_wrapper "$@"
@@ -72,8 +71,8 @@ function run {
 function run_under_flock {
   local tag="$1[$$]"; shift
   local lock="$1"; shift
-  exec 1> >(exec logger -t "$tag" -p user.info)
-  exec 2> >(exec logger -t "$tag" -p user.notice)
+  echo $tag
+  echo $lock
   case "$lock" in
     */*) err "Invalid lock token ($lock). (No slashes, please.)" ;;
   esac
@@ -100,8 +99,8 @@ function run_under_flock {
 function run_under_dld {
   local tag="$1[$$]"; shift
   local lock="$1"; shift
-  exec 1> >(exec logger -t "$tag" -p user.info)
-  exec 2> >(exec logger -t "$tag" -p user.notice)
+  echo $tag
+  echo $lock
   cd ~
   for rc in /etc/profile /etc/bashrc ~/.profile ~/.bashrc
   do
